@@ -1,6 +1,6 @@
 # Discord Bot in Go 🧠🤖
 
-A modular, slash-enabled Discord bot built in Go with Docker support. This bot supports both traditional command prefixes (like `!ping`) and modern slash commands (`/ping`). It also integrates with an external API to deliver jokes, and includes a secure message deletion function for server owners.
+A modular discord bot built in Go with Docker support. This bot supports both traditional command prefixes (like `!ping`) and modern slash commands (`/ping`). It also integrates with an external API to deliver jokes, and includes a secure message deletion function for server owners.
 
 ---
 
