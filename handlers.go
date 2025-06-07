@@ -8,30 +8,28 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+var commandHandlers = map[string]func(*discordgo.Session, *discordgo.MessageCreate){
+	"!ping":   handlePing,
+	"!hello":  handleHello,
+	"!bye":    handleBye,
+	"!help":   handleHelp,
+	"!whoami": handleWhoami,
+	"!google": handleGoogle,
+	"!joke":   handleJoke,
+	"!delete": handleDelete,
+}
+
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Ignore messages from the bot itself
 	// This prevents the bot from responding to its own messages
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-
-	switch m.Content {
-	case "!ping":
-		handlePing(s, m)
-	case "!hello":
-		handleHello(s, m)
-	case "!bye":
-		handleBye(s, m)
-	case "!help":
-		handleHelp(s, m)
-	case "!whoami":
-		handleWhoami(s, m)
-	case "!google":
-		handleGoogle(s, m)
-	case "!joke":
-		handleJoke(s, m)
-	default:
-		handleUnknown(s, m)
+	
+	// Check if the message starts with a command prefix
+	handler, exists := commandHandlers[m.Content]
+	if exists {
+		handler(s, m)
 	}
 }
 
@@ -87,6 +85,34 @@ func handleJoke(s *discordgo.Session, m *discordgo.MessageCreate) {
 	s.ChannelMessageSend(m.ChannelID, joke.Punchline)
 }
 
-func handleUnknown(s *discordgo.Session, m *discordgo.MessageCreate) {
-	s.ChannelMessageSend(m.ChannelID, "Unknown command. Type !help for a list of commands.")
+func handleDelete(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Check if the message is from the owner of the server
+	if m.Author.ID != "245711794344034305" {
+		s.ChannelMessageSend(m.ChannelID, "You can only delete your own messages.")
+		return
+	}
+
+	// Delete the message
+	messages, err := s.ChannelMessages(m.ChannelID, 100, "", "", "")
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Failed to delete the message.")
+		return
+	}
+
+	var messageIDs []string
+	for _, msg := range messages {
+		if time.Since(msg.Timestamp).Hours() < 24*14 {
+			messageIDs = append(messageIDs, msg.ID)
+		}
+	}
+
+	if len(messageIDs) > 0 {
+		err := s.ChannelMessagesBulkDelete(m.ChannelID, messageIDs)
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Failed to delete the message.")
+			return
+		}
+	} else {
+		s.ChannelMessageSend(m.ChannelID, "No messages found to delete.")
+	}
 }
