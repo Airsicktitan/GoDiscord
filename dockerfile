@@ -10,5 +10,5 @@ COPY . .
 RUN go build -o bot
 
 # Set env and run
-ENV TOKEN={TokenHere}
+ENV TOKEN={your_token_here}
 CMD ["./bot"]

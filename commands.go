@@ -35,5 +35,9 @@ var (
 			Name:        "joke",
 			Description: "Tells a random joke!",
 		},
+		{
+			Name: "reminder",
+			Description: "Sets a reminder for a specified time",
+		},
 	}
 )

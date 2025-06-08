@@ -2,21 +2,24 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 var commandHandlers = map[string]func(*discordgo.Session, *discordgo.MessageCreate){
-	"!ping":   handlePing,
-	"!hello":  handleHello,
-	"!bye":    handleBye,
-	"!help":   handleHelp,
-	"!whoami": handleWhoami,
-	"!google": handleGoogle,
-	"!joke":   handleJoke,
-	"!delete": handleDelete,
+	"!ping":     handlePing,
+	"!hello":    handleHello,
+	"!bye":      handleBye,
+	"!help":     handleHelp,
+	"!whoami":   handleWhoami,
+	"!google":   handleGoogle,
+	"!joke":     handleJoke,
+	"!delete":   handleDelete,
+	"!reminder": handleReminder,
 }
 
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -25,10 +28,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
-	
+
+	fields := strings.Fields(m.Content)
+	if len(fields) == 0 {
+		return
+	}
+
+	cmd := fields[0]
 	// Check if the message starts with a command prefix
-	handler, exists := commandHandlers[m.Content]
-	if exists {
+	if handler, exists := commandHandlers[cmd]; exists {
 		handler(s, m)
 	}
 }
@@ -58,7 +66,15 @@ func handleWhoami(s *discordgo.Session, m *discordgo.MessageCreate) {
 }
 
 func handleGoogle(s *discordgo.Session, m *discordgo.MessageCreate) {
-	s.ChannelMessageSend(m.ChannelID, "Here is a link to Google: https://www.google.com")
+	args := strings.TrimSpace(m.Content[len("!google"):])
+	if args == "" {
+		s.ChannelMessageSend(m.ChannelID, "Please provide a search after !google to google something!")
+		return
+	}
+
+	query := strings.ReplaceAll(args, " ", "+")
+	searchURL := fmt.Sprintf("https://www.google.com/search?q=%s", query)
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🔎 Here's what I found for %s: %s", args, searchURL))
 }
 
 func handleJoke(s *discordgo.Session, m *discordgo.MessageCreate) {
@@ -115,4 +131,45 @@ func handleDelete(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else {
 		s.ChannelMessageSend(m.ChannelID, "No messages found to delete.")
 	}
+}
+
+func handleReminder(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Ensure the command has arguments
+	if len(m.Content) <= len("!reminder ")-1 {
+		s.ChannelMessageSend(m.ChannelID, "Usage: !reminder [duration] [message]")
+		return
+	}
+
+	s.ChannelMessageSend(m.ChannelID, "Testing")
+
+	// Split the message content to extract the time and message
+	args := m.Content[len("!reminder "):]
+	parts := strings.SplitN(args, " ", 2)
+
+	// Expect the format: duration message"
+	if len(parts) != 2 {
+		s.ChannelMessageSend(m.ChannelID, "Usage: !reminder [duration] [message]")
+		return
+	}
+
+	durationStr := parts[0]
+	reminderMsg := parts[1]
+
+	duration, err := time.ParseDuration(durationStr)
+	if err != nil {
+		s.ChannelMessageSend(m.ChannelID, "Invalid duration format. Use a valid Go duration format (e.g., 1h, 30m, 15s).")
+		return
+	}
+
+	// Confirm to user
+	s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⏰ Okay <@%s>! I'll remind you in %s: \"%s\"", m.Author.ID, durationStr, reminderMsg))
+
+	// Start reminder in a goroutine
+	go func() {
+		time.Sleep(duration)
+		_, err := s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🔔 <@%s> Reminder: %s", m.Author.ID, reminderMsg))
+		if err != nil {
+			s.ChannelMessageSend(m.ChannelID, "Failed to send reminder message.")
+		}
+	}()
 }
